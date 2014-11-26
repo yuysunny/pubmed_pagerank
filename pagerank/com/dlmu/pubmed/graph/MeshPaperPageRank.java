@@ -20,11 +20,12 @@ public class MeshPaperPageRank implements Runnable {
 	private static double ALPHA = 0.15;
 	public static PrintWriter out2;
 	public static double EDGE_PARA=0.1;
-	private ProcessPaperPageRank  manager = null; //the manager who holds the work queue
-	int workerId = -1;  //set when the constructor is called
+	private ProcessPaperPageRank  manager = null; // the manager who holds the work queue
+	int workerId = -1;                   // set when the constructor is called
 	private PubMedGraph g = null;
-	private boolean initialized = false; //flag that everything was setup OK
-	private boolean shutdown = false;  //should this worker be shutdown
+	private boolean initialized = false; // flag that everything was setup OK
+	private boolean shutdown = false;    // should this worker be shutdown
+	private int processedCnt = 0;        // how many jobs have been processed by this worker
 	
 	private static Transformer<MyNode, Double> vertex_priors = new Transformer<MyNode, Double>() {
 		public Double transform(MyNode node) {
@@ -89,9 +90,10 @@ public class MeshPaperPageRank implements Runnable {
 					long nodeScoreTime = System.currentTimeMillis();
 					pageRankPrior(job.getOutputFileName(), keyword, g);
 					long endTime=System.currentTimeMillis();
+					processedCnt++;
 					if (log.isInfoEnabled() )
-						log.info("MeshPaperPageRank-runPageRank: for keyword " +
-								keyword + " the loading of nodes took " +
+						log.info("MeshPaperPageRank-runPageRank: job # " + processedCnt + 
+								" for keyword " + keyword + " the loading of nodes took " +
 								(nodeScoreTime - startTime) +"ms and pagerank took " +
 								(endTime - nodeScoreTime) +"ms");
 				}
