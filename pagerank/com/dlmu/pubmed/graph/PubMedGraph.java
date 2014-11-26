@@ -92,8 +92,8 @@ public class PubMedGraph extends SparseMultigraph<MyNode, MyLink> {
 					n.setPrior(score/sum);
 				} else {
 					log.error("MeshPaperPageRank-loadNodesScore: in the file " +
-							path_loading_name + " there was a record  for the paper " +
-							linestring[0] + " but that paper did not have a node in the tree.");
+							path_loading_name + " there was a record  for the node " +
+							linestring[0] + " but that node was not in the tree.");
 				}
 
 			}
