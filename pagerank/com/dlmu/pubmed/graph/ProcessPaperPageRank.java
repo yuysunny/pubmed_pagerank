@@ -2,6 +2,7 @@ package com.dlmu.pubmed.graph;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Properties;
 
 import org.apache.log4j.Logger;
 
@@ -40,28 +41,50 @@ class PageRankJob {
 
 
 public class ProcessPaperPageRank {
-	private static String DEFAULT_PATH = "paperPageRank";
-	private static String NODES_FILE = "pubmed_id.csv";
-	private static String EDGES_FILE = "citation_new.csv";
-	private static String NODE_SCORES_DIR = "PaperRelevanceInTopic";
-	private static String OUTPUT_DIR = "PaperContributeToTopic";
-	private static String OUTPUT_FILE_PREFIX = "keyword_";
+	private static String PAGERANK_PROPERTIES = "pagerank.properties";
+	private static String PROPERTY_THREADCNT = "thread_cnt";
+	private static String PROPERTY_PROCESSDIR = "process_dir";
+	//path to look for in the user directory if no directory is specified in the properties
+	private static String DEFAULT_PATH = "PageRank"; 
+	private static String PROPERTY_NODE_FILE = "node_file_name";
+	private static String PROPERTY_EDGE_FILE = "edge_file_name";
+	private static String PROPERTY_NODE_SCORE_DIR = "node_score_dir";
+	private static String PROPERTY_OUTPUT_DIR = "output_dir";
+	private static String PROPERTY_OUTPUT_PREFIX = "output_prefix";
 	protected static Logger log = Logger.getLogger(ProcessPaperPageRank.class.getName());
-	
+	private Properties properties = null;
 	private int threadCnt = -1; //number of threads
+	private String nodeScoresDirName = null;
+	private String outputDirName = null;
+	private String outputPrefix = null;
 	private String filePath = null;
 	private MeshPaperPageRank[] pageRankWorkers = null;
 	private ArrayList<PageRankJob> pageRankJobs = null; //the work queue of prior files to process
 	
 
-	 
-	public ProcessPaperPageRank(int threadCnt, String dir) throws PubmedPagerankException {
-		this.threadCnt = threadCnt;
-		filePath = (dir != null)? dir : System.getProperty("user.dir") + File.separator + DEFAULT_PATH;
+	 /**
+	  * This method expects an optional String parameter with the directory where
+	  * the pagerank.properties file could be found.  The directory could be
+	  * an absolute path or a path relative to the user directory.
+	  * If the directory is not specified, it looks for pagerank.properties in the
+	  * user directory.
+	  * @param dir
+	  * @throws PubmedPagerankException
+	  */
+	public ProcessPaperPageRank(String dir) throws PubmedPagerankException {
+		try {
+			properties = Utility.loadProperties(dir, PAGERANK_PROPERTIES);
+		} catch (Exception e) { throw new PubmedPagerankException("An exception occurred loading the pagerank properties file", e); }
+		
+		threadCnt = Integer.parseInt(properties.getProperty(PROPERTY_THREADCNT));
+		filePath = properties.getProperty(PROPERTY_PROCESSDIR, System.getProperty("user.dir") + File.separator + DEFAULT_PATH);
 		Utility.setupLogging(filePath); //Setup the Log4J logging
 		log.info("ProcessPaperPageRank: path used for all file access = " + filePath);
-		String nodeFileName = filePath + File.separator + NODES_FILE;
-		String edgeFileName = filePath + File.separator + EDGES_FILE;
+		String nodeFileName = filePath + File.separator + properties.getProperty(PROPERTY_NODE_FILE);
+		String edgeFileName = filePath + File.separator + properties.getProperty(PROPERTY_EDGE_FILE);
+		nodeScoresDirName = properties.getProperty(PROPERTY_NODE_SCORE_DIR);
+		outputDirName = properties.getProperty(PROPERTY_OUTPUT_DIR);
+		outputPrefix = properties.getProperty(PROPERTY_OUTPUT_PREFIX);
 		// Create the array of workers
 		pageRankWorkers = new MeshPaperPageRank[threadCnt];
 		if (setupWorkers(threadCnt, nodeFileName, edgeFileName) != threadCnt) {
@@ -101,8 +124,8 @@ public class ProcessPaperPageRank {
 	
 	private void loadWorkQueue() throws PubmedPagerankException {
 		// Get the list of files to process
-		String nodeFilePath = filePath + File.separator + NODE_SCORES_DIR;
-		String outputPath = filePath + File.separator + OUTPUT_DIR;
+		String nodeFilePath = filePath + File.separator + nodeScoresDirName;
+		String outputPath = filePath + File.separator + outputDirName;
 		String[]filelist = null;
 		
 		try{
@@ -115,7 +138,7 @@ public class ProcessPaperPageRank {
 					String nodeFile = nodeFilePath + File.separator + fileName; //full path to the node prior file to be processed
 					String s[]=fileName.split("d_",2);
 					String keyword = s[1];
-					String outFile = outputPath + File.separator + OUTPUT_FILE_PREFIX + keyword;
+					String outFile = outputPath + File.separator + outputPrefix + keyword;
 					PageRankJob job = new PageRankJob(keyword, nodeFile, outFile);
 					pageRankJobs.add(job);
 				}
@@ -169,23 +192,12 @@ public class ProcessPaperPageRank {
 	 * This is the main routine for processing the PageRank for citations
 	 * in a multi-threaded approach.
 	 * @param args
-	 * 1) int - number of threads.  If 0 or negative, it will be set to 1
-	 * 2) String - optional path to the directory containing:
-	 *             a) the csv input files for the nodes and edges of the graph
-	 *             b) the sub-directory contianing the prior score files for keywords
-	 *             c) the log4j.properties file for configuring the logging
-	 *             d) the output file directory will be written 
+	 * 1) Optional path to the directory containing the pagerank.properties file.
 	 * @throws PubmedPagerankException
 	 */
 	public static void main(String[] args) throws PubmedPagerankException {
-		if (args.length < 1)
-			throw new PubmedPagerankException ("thread count required as a parameter");
-		int threadCnt = Integer.parseInt(args[0]);
-		if (threadCnt < 1)
-			threadCnt = 1;
-		String dir = (args.length > 1)? args[1].trim() : null;
-		
-		ProcessPaperPageRank processPR = new ProcessPaperPageRank(threadCnt, dir);
+		String dir = (args.length > 0)? args[0] : null;
+		ProcessPaperPageRank processPR = new ProcessPaperPageRank(dir);
 		processPR.process();
 	} //end of main
 
